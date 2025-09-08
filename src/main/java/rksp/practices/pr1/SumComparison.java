@@ -25,7 +25,6 @@ public class SumComparison {
         System.out.println("Задержка: " + delayMs + " мс на каждое сложение");
         System.out.println("FJ threshold: " + fjThreshold + " (≈ " +
                 (int) Math.ceil((double) size / fjThreshold) + " листовых задач)");
-        System.out.println("FJ ManagedBlocker: OFF\n");
 
         Result<Long> r1 = measure(() -> seqSum(array));
         System.out.printf("Последовательно: сумма=%d, время=%d мс, память=%d KB%n", r1.value, r1.ms, r1.kb);

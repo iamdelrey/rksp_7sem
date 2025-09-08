@@ -1,5 +1,6 @@
 package rksp.practices.pr2;
 
+import org.apache.commons.io.FileUtils;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
@@ -15,12 +16,12 @@ public class Task2CopyBenchmark {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
-            System.out.println("Usage: java Task2CopyBenchmark <dir> [--sizeMB 100] [--iterations 3]");
+            System.out.println("Usage: java pr2.Task2CopyBenchmark <dir> [--sizeMB 100] [--iterations 3]");
             return;
         }
-        Path dir = Paths.get(args[0]);
-        long sizeMB = argLong(args, "--sizeMB", 100);
-        int iterations = (int) argLong(args, "--iterations", 3);
+        final Path dir = Paths.get(args[0]);
+        final long sizeMB = argLong(args, "--sizeMB", 100);
+        final int iterations = (int) argLong(args, "--iterations", 3);
         run(dir, sizeMB, iterations);
     }
 
@@ -36,26 +37,30 @@ public class Task2CopyBenchmark {
 
         List<Result> results = new ArrayList<>();
         for (int i = 1; i <= iterations; i++) {
-            final int iter = i; // <- вот это важно
+            final int iter = i;
+            System.out.printf("%nIteration %d/%d%n", iter, iterations);
 
             results.add(benchCopy("Streams (Buffered)", () -> {
                 Path dst = dir.resolve("copy-streams-" + iter + ".bin");
                 copyUsingStreams(src.toFile(), dst.toFile());
                 return dst;
             }));
+
             results.add(benchCopy("FileChannel.transferTo", () -> {
                 Path dst = dir.resolve("copy-channel-transferTo-" + iter + ".bin");
                 copyUsingChannelTransferTo(src.toFile(), dst.toFile());
                 return dst;
             }));
+
             results.add(benchCopy("Files.copy (NIO2)", () -> {
                 Path dst = dir.resolve("copy-files-" + iter + ".bin");
                 copyUsingFiles(src.toFile(), dst.toFile());
                 return dst;
             }));
-            results.add(benchCopy("Channel+ByteBuffer loop", () -> {
-                Path dst = dir.resolve("copy-channel-buffer-" + iter + ".bin");
-                copyUsingChannelLoop(src.toFile(), dst.toFile());
+
+            results.add(benchCopy("Apache Commons IO", () -> {
+                Path dst = dir.resolve("copy-commons-" + iter + ".bin");
+                copyUsingCommonsIO(src.toFile(), dst.toFile());
                 return dst;
             }));
         }
@@ -63,13 +68,13 @@ public class Task2CopyBenchmark {
         System.out.println("\nSummary (average per method):");
         var grouped = new LinkedHashMap<String, List<Result>>();
         for (var r : results) grouped.computeIfAbsent(r.method, k -> new ArrayList<>()).add(r);
-        System.out.printf("%-26s %12s %12s %14s%n", "Method", "MB/s", "Millis", "ΔMemory (MB)");
+        System.out.printf("%-24s %12s %12s %14s%n", "Method", "MB/s", "Millis", "ΔMemory (MB)");
         for (var e : grouped.entrySet()) {
             long bytes = e.getValue().stream().mapToLong(v -> v.bytes).sum() / e.getValue().size();
             long millis = (long) e.getValue().stream().mapToLong(v -> v.millis).average().orElse(0);
             long mem = (long) e.getValue().stream().mapToLong(v -> v.memBytes).average().orElse(0);
             double mbps = (bytes / 1024.0 / 1024.0) / (millis / 1000.0);
-            System.out.printf("%-26s %12.1f %12d %14.1f%n", e.getKey(), mbps, millis, mem / 1024.0 / 1024.0);
+            System.out.printf("%-24s %12.1f %12d %14.1f%n", e.getKey(), mbps, millis, mem / 1024.0 / 1024.0);
         }
     }
 
@@ -85,7 +90,7 @@ public class Task2CopyBenchmark {
         long memAfter = usedMem();
         long deltaMem = Math.max(0, memAfter - memBefore);
         long bytes = Files.size(dst);
-        System.out.printf("%-26s -> %,d bytes in %d ms, Δmem ~ %.1f MB%n",
+        System.out.printf("%-24s -> %,d bytes in %d ms, Δmem ~ %.1f MB%n",
                 name, bytes, millis, deltaMem / 1024.0 / 1024.0);
         return new Result(name, bytes, millis, deltaMem);
     }
@@ -132,16 +137,8 @@ public class Task2CopyBenchmark {
         Files.copy(src.toPath(), dst.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
-    static void copyUsingChannelLoop(File src, File dst) throws IOException {
-        try (ReadableByteChannel in = Channels.newChannel(new FileInputStream(src));
-             WritableByteChannel out = Channels.newChannel(new FileOutputStream(dst))) {
-            ByteBuffer buf = ByteBuffer.allocateDirect(64 * 1024);
-            while (in.read(buf) != -1) {
-                buf.flip();
-                while (buf.hasRemaining()) out.write(buf);
-                buf.clear();
-            }
-        }
+    static void copyUsingCommonsIO(File src, File dst) throws IOException {
+        FileUtils.copyFile(src, dst);
     }
 
     static long usedMem() {
