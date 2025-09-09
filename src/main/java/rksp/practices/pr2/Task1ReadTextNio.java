@@ -10,7 +10,9 @@ import java.nio.file.Paths;
 public class Task1ReadTextNio {
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
-            System.out.println("Usage: java Task1ReadTextNio <path-to-file.txt>");
+            System.out.println(
+                    "Usage: java -cp <classpath_root> rksp.practices.pr2.Task1ReadTextNio <path-to-file.txt>"
+            );
             return;
         }
         Path path = Paths.get(args[0]);
