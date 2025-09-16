@@ -15,11 +15,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-@SpringBootApplication(exclude = RSocketServerAutoConfiguration.class) // <- не поднимать RSocket-сервер
+@SpringBootApplication(exclude = RSocketServerAutoConfiguration.class)
 public class ClientApp {
     public static void main(String[] args) {
         SpringApplication app = new SpringApplication(ClientApp.class);
-        app.setWebApplicationType(WebApplicationType.NONE);             // <- без HTTP
+        app.setWebApplicationType(WebApplicationType.NONE); // без HTTP
         try (ConfigurableApplicationContext ctx = app.run(args)) {
             var strategies = ctx.getBean(RSocketStrategies.class);
             int port = Integer.getInteger("rsocket.port", 7777);
@@ -46,11 +46,10 @@ public class ClientApp {
                     .doOnNext(r -> System.out.println("STREAM -> " + r))
                     .blockLast();
 
-            List<Integer> input = List.of(1, 2, 3, 4, 5);
             var sums = requester.route("channel.sum")
-                    .data(Flux.fromIterable(input).delayElements(Duration.ofMillis(150)), Integer.class)
+                    .data(Flux.just(1,2,3,4,5).delayElements(Duration.ofMillis(150)), Integer.class)
                     .retrieveFlux(Integer.class)
-                    .take(input.size())
+                    .take(5)
                     .collectList()
                     .block();
             System.out.println("CHANNEL sums: " + sums);
